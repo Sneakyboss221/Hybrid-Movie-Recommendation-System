@@ -32,9 +32,11 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install numpy cython
-        pip install -r requirements.txt
-        pip install -r requirements-dev.txt
+    # Install a version of numpy that matches requirements.txt
+    pip install "numpy<2.0" cython
+    # Install requirements, telling pip NOT to isolate the build
+    pip install --no-build-isolation -r requirements.txt
+    pip install -r requirements-dev.txt
     
     - name: Run tests
       run: |
