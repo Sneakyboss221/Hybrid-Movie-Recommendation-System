@@ -59,7 +59,7 @@ Hybrid Movie Recommendation System/
     ├── requirements.txt          # Python dependencies
     └── .gitignore               # Git ignore rules
 ```
-![Dashboard](screenshots/Home.png)
+![Dashboard](Home.png)
 
 ## 🚀 Quick Start
 
