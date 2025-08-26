@@ -59,7 +59,7 @@ Hybrid Movie Recommendation System/
     ├── requirements.txt          # Python dependencies
     └── .gitignore               # Git ignore rules
 ```
-### 🏠 **Streamlit UI Home Page**
+## 🏠 **Streamlit UI Home Page**
 ![Dashboard](Home.png)
 
 ## 🚀 Quick Start
