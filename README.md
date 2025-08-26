@@ -3,8 +3,8 @@
 [![Python](https://img.shields.io/badge/Python-3.7+-blue.svg)](https://www.python.org/downloads/)
 [![Streamlit](https://img.shields.io/badge/Streamlit-1.22+-red.svg)](https://streamlit.io/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Stars](https://img.shields.io/github/stars/yourusername/hybrid-movie-recommendation-system?style=social)](https://github.com/yourusername/hybrid-movie-recommendation-system)
-[![Forks](https://img.shields.io/github/forks/yourusername/hybrid-movie-recommendation-system?style=social)](https://github.com/yourusername/hybrid-movie-recommendation-system)
+[![Stars](https://img.shields.io/github/stars/yourusername/hybrid-movie-recommendation-system?style=social)](https://github.com/Sneakyboss221/hybrid-movie-recommendation-system)
+[![Forks](https://img.shields.io/github/forks/yourusername/hybrid-movie-recommendation-system?style=social)](https://github.com/Sneakyboss221/hybrid-movie-recommendation-system)
 
 > **A sophisticated hybrid movie recommendation system combining content-based and collaborative filtering with an interactive web interface.**
 
@@ -341,9 +341,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Support
 
-- **Issues**: [GitHub Issues](https://github.com/yourusername/hybrid-movie-recommendation-system/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/hybrid-movie-recommendation-system/discussions)
-- **Email**: your.email@example.com
+- **Issues**: [GitHub Issues](https://github.com/Sneakyboss221/hybrid-movie-recommendation-system/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/Sneakyboss221/hybrid-movie-recommendation-system/discussions)
+- **Email**: Sneakyboss221@gmail.com
 
 ## 🗺️ Roadmap
 
@@ -362,21 +362,20 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📊 Project Statistics
 
-![GitHub stars](https://img.shields.io/github/stars/yourusername/hybrid-movie-recommendation-system)
-![GitHub forks](https://img.shields.io/github/forks/yourusername/hybrid-movie-recommendation-system)
-![GitHub issues](https://img.shields.io/github/issues/yourusername/hybrid-movie-recommendation-system)
-![GitHub pull requests](https://img.shields.io/github/issues-pr/yourusername/hybrid-movie-recommendation-system)
-![GitHub contributors](https://img.shields.io/github/contributors/yourusername/hybrid-movie-recommendation-system)
+![GitHub stars](https://img.shields.io/github/stars/Sneakyboss221/hybrid-movie-recommendation-system)
+![GitHub forks](https://img.shields.io/github/forks/Sneakyboss221/hybrid-movie-recommendation-system)
+![GitHub issues](https://img.shields.io/github/issues/Sneakyboss221/hybrid-movie-recommendation-system)
+![GitHub pull requests](https://img.shields.io/github/issues-pr/Sneakyboss221/hybrid-movie-recommendation-system)
+![GitHub contributors](https://img.shields.io/github/contributors/Sneakyboss221/hybrid-movie-recommendation-system)
 
 ---
 
 <div align="center">
 
-**Made with ❤️ by [Your Name]**
+**Made by [Sneaky]**
 
-[![GitHub](https://img.shields.io/badge/GitHub-100000?style=for-the-badge&logo=github&logoColor=white)](https://github.com/yourusername)
-[![LinkedIn](https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white)](https://linkedin.com/in/yourusername)
-[![Twitter](https://img.shields.io/badge/Twitter-1DA1F2?style=for-the-badge&logo=twitter&logoColor=white)](https://twitter.com/yourusername)
+[![GitHub](https://img.shields.io/badge/GitHub-100000?style=for-the-badge&logo=github&logoColor=white)](https://github.com/Sneakyboss221)
+
 
 **⭐ Star this repository if you found it helpful!**
 
