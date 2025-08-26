@@ -66,7 +66,7 @@ Hybrid Movie Recommendation System/
 - Python 3.7 or higher
 - Git
 - 4GB RAM (recommended)
-- **No external APIs required** - uses included MovieLens dataset https://grouplens.org/datasets/movielens/100k/
+- **No external APIs required** - uses included [MovieLens](https://grouplens.org/datasets/movielens/100k/) dataset 
 
 ### Installation
 
