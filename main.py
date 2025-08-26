@@ -1,372 +1,238 @@
-import pandas as pd
-import numpy as np
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
-import matplotlib.pyplot as plt
-import seaborn as sns
-from collections import defaultdict
+"""
+Main Module for Hybrid Movie Recommendation System
 
-# Load the movies dataset
-# For this example, I'll use the MovieLens dataset format
-# If you have a different dataset, adjust the column names accordingly
-movies = pd.read_csv('movies.csv')
-ratings = pd.read_csv('ratings.csv')
+This module integrates all components:
+- Data preprocessing
+- Content-based filtering
+- Collaborative filtering
+- Hybrid recommendations
+- User interfaces (Terminal and Streamlit)
+"""
 
-print("Movies dataset sample:")
-print(movies.head())
-print("\nRatings dataset sample:")
-print(ratings.head())
+import sys
+import os
+import argparse
+from typing import Optional
 
-# Data preprocessing
-# Extract genres and create a combined feature for content-based filtering
-def extract_features(movies_df):
-    # Extract year from title
-    movies_df['year'] = movies_df['title'].str.extract(r'\((\d{4})\)').fillna(0).astype(int)
-    
-    # Clean the title by removing the year
-    movies_df['clean_title'] = movies_df['title'].str.replace(r'\s*\(\d{4}\)\s*', '', regex=True)
-    
-    # Create a combined feature for content-based filtering
-    movies_df['combined_features'] = movies_df['genres'].str.replace('|', ' ')
-    
-    return movies_df
+# Import our modules
+from data_preprocessing import DataPreprocessor
+from content_based import ContentBasedRecommender
+from collaborative import CollaborativeRecommender
+from hybrid import HybridRecommender
+from ui import TerminalUI, StreamlitUI
 
-movies = extract_features(movies)
-print("\nPreprocessed movies:")
-print(movies.head())
+def initialize_system(use_metadata_enrichment: bool = False, tmdb_api_key: Optional[str] = None):
+    """
+    Initialize the complete recommendation system.
+    
+    Args:
+        use_metadata_enrichment: Whether to enrich metadata with TMDb API
+        tmdb_api_key: TMDb API key for metadata enrichment
+        
+    Returns:
+        Tuple of (hybrid_recommender, data_summary)
+    """
+    print("🎬 Initializing Hybrid Movie Recommendation System...")
+    print("=" * 60)
+    
+    # Step 1: Data Preprocessing
+    print("\n📊 Step 1: Loading and preprocessing data...")
+    preprocessor = DataPreprocessor()
+    data = preprocessor.load_data()
+    
+    if not data:
+        print("❌ Failed to load data. Please check if movies.csv and ratings.csv exist.")
+        return None, None
+    
+    cleaned_movies = preprocessor.clean_data()
+    
+    # Optional metadata enrichment
+    if use_metadata_enrichment and tmdb_api_key:
+        print("\n🔍 Step 1.5: Enriching metadata with TMDb API...")
+        preprocessor.set_tmdb_api_key(tmdb_api_key)
+        enriched_movies = preprocessor.enrich_metadata(max_movies=100)  # Limit for demo
+        cleaned_movies = enriched_movies
+    
+    merged_data = preprocessor.merge_datasets()
+    data_summary = preprocessor.get_data_summary()
+    
+    # Step 2: Initialize Content-Based Recommender
+    print("\n🎯 Step 2: Initializing content-based recommender...")
+    content_recommender = ContentBasedRecommender(cleaned_movies)
+    content_recommender.fit()
+    
+    # Step 3: Initialize Collaborative Recommender
+    print("\n👥 Step 3: Initializing collaborative recommender...")
+    collab_recommender = CollaborativeRecommender(data['ratings'], cleaned_movies)
+    collab_recommender.prepare_data()
+    collab_recommender.fit_svd()
+    
+    # Step 4: Initialize Hybrid Recommender
+    print("\n🔗 Step 4: Initializing hybrid recommender...")
+    hybrid_recommender = HybridRecommender(content_recommender, collab_recommender)
+    
+    print("\n✅ System initialization completed!")
+    print("=" * 60)
+    
+    return hybrid_recommender, data_summary
 
-# Content-based recommendation system
-def build_content_based_recommender(movies_df):
-    # Create TF-IDF vectorizer
-    tfidf = TfidfVectorizer(stop_words='english')
-    
-    # Apply TF-IDF to the combined features
-    tfidf_matrix = tfidf.fit_transform(movies_df['combined_features'])
-    
-    # Calculate cosine similarity
-    cosine_sim = cosine_similarity(tfidf_matrix, tfidf_matrix)
-    
-    # Create a mapping of movie titles to indices
-    indices = pd.Series(movies_df.index, index=movies_df['clean_title']).drop_duplicates()
-    
-    return cosine_sim, indices
+def run_terminal_interface(hybrid_recommender: HybridRecommender):
+    """Run the terminal interface."""
+    print("\n🚀 Starting Terminal Interface...")
+    terminal_ui = TerminalUI(hybrid_recommender)
+    terminal_ui.run()
 
-# Build the recommender
-cosine_sim, indices = build_content_based_recommender(movies)
-
-# Function to get movie recommendations
-def get_content_based_recommendations(title, cosine_sim=cosine_sim, indices=indices, movies_df=movies, num_recommendations=10):
-    # Get the index of the movie that matches the title
-    try:
-        idx = indices[title]
-    except KeyError:
-        print(f"'{title}' not found in the dataset. Here are some available titles:")
-        sample_titles = movies_df['clean_title'].sample(5).tolist()
-        for t in sample_titles:
-            print(f"- {t}")
-        return None
+def run_streamlit_interface(hybrid_recommender: HybridRecommender):
+    """Run the Streamlit web interface."""
+    print("\n🌐 Starting Streamlit Web Interface...")
+    print("The web interface will open in your browser.")
+    print("If it doesn't open automatically, go to: http://localhost:8501")
     
-    # Get the similarity scores for all movies
-    sim_scores = list(enumerate(cosine_sim[idx]))
+    # Create a simple Streamlit app
+    import streamlit as st
     
-    # Sort the movies based on the similarity scores
-    sim_scores = sorted(sim_scores, key=lambda x: x[1], reverse=True)
-    
-    # Get the scores of the most similar movies
-    sim_scores = sim_scores[1:num_recommendations+1]
-    
-    # Get the movie indices
-    movie_indices = [i[0] for i in sim_scores]
-    similarity_scores = [i[1] for i in sim_scores]
-    
-    # Return the top movies with their similarity scores
-    recommendations = movies_df.iloc[movie_indices].copy()
-    recommendations['similarity_score'] = similarity_scores
-    
-    return recommendations[['title', 'genres', 'similarity_score']]
-
-# Collaborative filtering recommendation
-def build_collaborative_filtering_recommender(ratings_df, movies_df):
-    # Create user-item matrix
-    user_item_matrix = ratings_df.pivot_table(index='userId', columns='movieId', values='rating').fillna(0)
-    
-    # Calculate movie-movie similarity matrix
-    movie_similarity = cosine_similarity(user_item_matrix.T)
-    
-    # Create a mapping of movie IDs to indices
-    movie_indices = {movie_id: i for i, movie_id in enumerate(user_item_matrix.columns)}
-    
-    # Create a mapping of indices to movie IDs
-    indices_to_movieid = {i: movie_id for movie_id, i in movie_indices.items()}
-    
-    # Create a mapping of movie IDs to titles
-    movie_id_to_title = pd.Series(movies_df['title'].values, index=movies_df['movieId']).to_dict()
-    
-    return movie_similarity, movie_indices, indices_to_movieid, movie_id_to_title
-
-# Build the collaborative filtering recommender
-try:
-    movie_similarity, movie_indices, indices_to_movieid, movie_id_to_title = build_collaborative_filtering_recommender(ratings, movies)
-    
-    def get_collaborative_recommendations(movie_title, movies_df=movies, num_recommendations=10):
-        # Find the movieId for the given title
-        movie_row = movies_df[movies_df['clean_title'] == movie_title]
-        
-        if movie_row.empty:
-            print(f"'{movie_title}' not found in the dataset. Here are some available titles:")
-            sample_titles = movies_df['clean_title'].sample(5).tolist()
-            for t in sample_titles:
-                print(f"- {t}")
-            return None
-        
-        movie_id = movie_row.iloc[0]['movieId']
-        
-        # Check if the movie is in the similarity matrix
-        if movie_id not in movie_indices:
-            print(f"Movie '{movie_title}' has no ratings in the dataset.")
-            return None
-        
-        # Get the index of the movie in the similarity matrix
-        idx = movie_indices[movie_id]
-        
-        # Get the similarity scores
-        sim_scores = list(enumerate(movie_similarity[idx]))
-        
-        # Sort the movies based on the similarity scores
-        sim_scores = sorted(sim_scores, key=lambda x: x[1], reverse=True)
-        
-        # Get the scores of the most similar movies
-        sim_scores = sim_scores[1:num_recommendations+1]
-        
-        # Get the movie indices and IDs
-        similar_movie_indices = [i[0] for i in sim_scores]
-        similar_movie_ids = [indices_to_movieid[idx] for idx in similar_movie_indices]
-        similarity_scores = [i[1] for i in sim_scores]
-        
-        # Get the movie titles
-        similar_movie_titles = [movie_id_to_title[movie_id] for movie_id in similar_movie_ids]
-        
-        # Return the recommendations as a DataFrame
-        recommendations = pd.DataFrame({
-            'movieId': similar_movie_ids,
-            'title': similar_movie_titles,
-            'similarity_score': similarity_scores
-        })
-        
-        return recommendations
-    
-    collaborative_filtering_available = True
-except Exception as e:
-    print(f"Couldn't build collaborative filtering recommender: {e}")
-    collaborative_filtering_available = False
-
-# Function to visualize recommendations
-def visualize_recommendations(recommendations, title="Movie Recommendations", recommendation_type="Content-Based"):
-    if recommendations is None or len(recommendations) == 0:
-        print("No recommendations to visualize.")
-        return
-    
-    # Sort recommendations by similarity score
-    recommendations = recommendations.sort_values('similarity_score', ascending=False)
-    
-    plt.figure(figsize=(12, 8))
-    
-    # Create bar plot
-    bars = plt.barh(recommendations['title'], recommendations['similarity_score'], color='skyblue')
-    
-    # Add similarity scores to the end of each bar
-    for i, bar in enumerate(bars):
-        score = recommendations['similarity_score'].iloc[i]
-        plt.text(score + 0.01, bar.get_y() + bar.get_height()/2, f'{score:.2f}', 
-                 va='center', fontsize=10)
-    
-    plt.xlabel('Similarity Score')
-    plt.ylabel('Movie Title')
-    plt.title(f'{recommendation_type} Recommendations for: {title}')
-    plt.xlim(0, 1.1)  # Set x-axis limit to 0-1 for similarity scores
-    plt.tight_layout()
-    plt.grid(axis='x', linestyle='--', alpha=0.7)
-    plt.show()
-
-# Function to get recommendations using both methods
-def get_recommendations(movie_title, num_recommendations=10):
-    print(f"\nGetting content-based recommendations for '{movie_title}':")
-    content_recommendations = get_content_based_recommendations(
-        movie_title, num_recommendations=num_recommendations
+    # Set page config
+    st.set_page_config(
+        page_title="Movie Recommendation System",
+        page_icon="🎬",
+        layout="wide",
+        initial_sidebar_state="expanded"
     )
+    
+    # Initialize Streamlit UI
+    streamlit_ui = StreamlitUI(hybrid_recommender)
+    streamlit_ui.run()
 
-    if content_recommendations is not None:
-        print("\nContent-based recommendations:")
-        print(content_recommendations)
-        visualize_recommendations(content_recommendations, movie_title, "Content-Based")
+def demo_mode(hybrid_recommender: HybridRecommender):
+    """Run a quick demo of the system."""
+    print("\n🎬 DEMO MODE - Quick System Test")
+    print("=" * 50)
+    
+    # Test movie recommendations
+    print("\n📊 Testing movie recommendations...")
+    movie_title = "Toy Story"
+    movie_recs = hybrid_recommender.get_hybrid_recommendations(
+        movie_title=movie_title,
+        num_recommendations=5,
+        alpha=0.6
+    )
+    
+    if movie_recs is not None:
+        print(f"\nTop 5 recommendations for '{movie_title}':")
+        for i, (_, row) in enumerate(movie_recs.iterrows(), 1):
+            print(f"{i}. {row['title']} ({row.get('year', 'N/A')}) - {row['genres']}")
+    
+    # Test user recommendations
+    print("\n👤 Testing user recommendations...")
+    user_id = 1
+    user_recs = hybrid_recommender.get_hybrid_recommendations(
+        user_id=user_id,
+        num_recommendations=5,
+        alpha=0.4
+    )
+    
+    if user_recs is not None:
+        print(f"\nTop 5 recommendations for user {user_id}:")
+        for i, (_, row) in enumerate(user_recs.iterrows(), 1):
+            print(f"{i}. {row['title']} ({row.get('year', 'N/A')}) - {row['genres']}")
+    
+    # Test ensemble recommendations
+    print("\n🎯 Testing ensemble recommendations...")
+    ensemble_recs = hybrid_recommender.get_ensemble_recommendations(
+        movie_title=movie_title,
+        user_id=user_id,
+        num_recommendations=5
+    )
+    
+    if ensemble_recs is not None:
+        print(f"\nTop 5 ensemble recommendations:")
+        for i, (_, row) in enumerate(ensemble_recs.iterrows(), 1):
+            print(f"{i}. {row['title']} ({row.get('year', 'N/A')}) - {row['genres']}")
+    
+    print("\n✅ Demo completed successfully!")
 
-    # Declare before usage to avoid UnboundLocalError
-    collab_recommendations = None
-
-    if collaborative_filtering_available:
-        print(f"\nGetting collaborative filtering recommendations for '{movie_title}':")
-        collab_recommendations = get_collaborative_recommendations(
-            movie_title, num_recommendations=num_recommendations
-        )
-
-        if collab_recommendations is not None:
-            print("\nCollaborative filtering recommendations:")
-            print(collab_recommendations)
-            visualize_recommendations(collab_recommendations, movie_title, "Collaborative Filtering")
-
-# Example usage
-movie_title = "Toy Story"  # Example movie title
-get_recommendations(movie_title, num_recommendations=10)
-
-# Function to get recommendations for a user
-def get_user_recommendations(user_id, num_recommendations=10):
-    if not collaborative_filtering_available:
-        print("Collaborative filtering is not available.")
-        return None
+def main():
+    """Main function to run the recommendation system."""
+    parser = argparse.ArgumentParser(description="Hybrid Movie Recommendation System")
+    parser.add_argument(
+        "--interface", 
+        choices=["terminal", "streamlit", "demo"], 
+        default="terminal",
+        help="Interface to use (default: terminal)"
+    )
+    parser.add_argument(
+        "--enrich-metadata", 
+        action="store_true",
+        help="Enable metadata enrichment with TMDb API"
+    )
+    parser.add_argument(
+        "--tmdb-api-key", 
+        type=str,
+        help="TMDb API key for metadata enrichment"
+    )
+    parser.add_argument(
+        "--save-models", 
+        action="store_true",
+        help="Save trained models to disk"
+    )
+    parser.add_argument(
+        "--load-models", 
+        action="store_true",
+        help="Load trained models from disk"
+    )
     
-    # Get the user's ratings
-    user_ratings = ratings[ratings['userId'] == user_id]
+    args = parser.parse_args()
     
-    if user_ratings.empty:
-        print(f"User {user_id} not found in the dataset.")
-        return None
-    
-    # Get the movies the user has rated
-    rated_movies = user_ratings['movieId'].tolist()
-    
-    # Calculate the average rating for each movie
-    movie_avg_ratings = ratings.groupby('movieId')['rating'].mean()
-    
-    # Get the user's average rating
-    user_avg_rating = user_ratings['rating'].mean()
-    
-    # Dict to store potential recommendations
-    potential_recommendations = defaultdict(float)
-    
-    # For each movie the user has rated
-    for idx, row in user_ratings.iterrows():
-        movie_id = row['movieId']
-        user_rating = row['rating']
-        
-        # If the movie is not in the similarity matrix, skip it
-        if movie_id not in movie_indices:
-            continue
-        
-        # Get the index of the movie in the similarity matrix
-        movie_idx = movie_indices[movie_id]
-        
-        # Get similar movies
-        similar_movies = [(i, movie_similarity[movie_idx][i]) for i in range(len(movie_similarity[movie_idx]))]
-        similar_movies = sorted(similar_movies, key=lambda x: x[1], reverse=True)[1:21]  # Get top 20 similar movies
-        
-        # For each similar movie
-        for sim_movie_idx, similarity in similar_movies:
-            sim_movie_id = indices_to_movieid[sim_movie_idx]
-            
-            # Skip if the user has already rated this movie
-            if sim_movie_id in rated_movies:
-                continue
-            
-            # Calculate the predicted rating
-            rating_diff = user_rating - movie_avg_ratings.get(movie_id, user_avg_rating)
-            predicted_rating = movie_avg_ratings.get(sim_movie_id, user_avg_rating) + rating_diff * similarity
-            
-            # Update the potential recommendation score
-            potential_recommendations[sim_movie_id] += predicted_rating * similarity
-    
-    # Sort the recommendations by score
-    sorted_recommendations = sorted(potential_recommendations.items(), key=lambda x: x[1], reverse=True)[:num_recommendations]
-    
-    if not sorted_recommendations:
-        print(f"No recommendations found for user {user_id}.")
-        return None
-    
-    # Create a DataFrame with the recommendations
-    recommendation_data = {
-        'movieId': [movie_id for movie_id, _ in sorted_recommendations],
-        'title': [movie_id_to_title.get(movie_id, f"Unknown ({movie_id})") for movie_id, _ in sorted_recommendations],
-        'predicted_rating': [score for _, score in sorted_recommendations]
-    }
-    
-    recommendations = pd.DataFrame(recommendation_data)
-    
-    return recommendations
-
-# Example usage for user recommendations
-if collaborative_filtering_available:
-    user_id = 1  # Example user ID
-    print(f"\nGetting recommendations for user {user_id}:")
-    user_recommendations = get_user_recommendations(user_id, num_recommendations=10)
-    
-    if user_recommendations is not None:
-        print("\nUser recommendations:")
-        print(user_recommendations)
-        
-        # Visualize user recommendations
-        plt.figure(figsize=(12, 8))
-        bars = plt.barh(user_recommendations['title'], user_recommendations['predicted_rating'], color='lightgreen')
-        
-        # Add predicted ratings to the end of each bar
-        for i, bar in enumerate(bars):
-            score = user_recommendations['predicted_rating'].iloc[i]
-            plt.text(score + 0.1, bar.get_y() + bar.get_height()/2, f'{score:.2f}', 
-                     va='center', fontsize=10)
-        
-        plt.xlabel('Predicted Rating')
-        plt.ylabel('Movie Title')
-        plt.title(f'Movie Recommendations for User {user_id}')
-        plt.grid(axis='x', linestyle='--', alpha=0.7)
-        plt.tight_layout()
-        plt.show()
-
-# Interactive function to get recommendations
-def get_recommendations_for_movie():
-    print("\nEnter a movie title to get recommendations:")
-    movie_title = input()
-    num_recommendations = 10
-    
-    get_recommendations(movie_title, num_recommendations)
-
-# Interactive function to get user recommendations
-def get_recommendations_for_user():
-    if not collaborative_filtering_available:
-        print("Collaborative filtering is not available.")
-        return
-    
-    print("\nEnter a user ID to get recommendations:")
     try:
-        user_id = int(input())
-        num_recommendations = 10
+        # Initialize the system
+        hybrid_recommender, data_summary = initialize_system(
+            use_metadata_enrichment=args.enrich_metadata,
+            tmdb_api_key=args.tmdb_api_key
+        )
         
-        user_recommendations = get_user_recommendations(user_id, num_recommendations)
+        if hybrid_recommender is None:
+            print("❌ Failed to initialize the system. Exiting.")
+            return
         
-        if user_recommendations is not None:
-            print("\nUser recommendations:")
-            print(user_recommendations)
-            
-            # Visualize user recommendations
-            plt.figure(figsize=(12, 8))
-            bars = plt.barh(user_recommendations['title'], user_recommendations['predicted_rating'], color='lightgreen')
-            
-            # Add predicted ratings to the end of each bar
-            for i, bar in enumerate(bars):
-                score = user_recommendations['predicted_rating'].iloc[i]
-                plt.text(score + 0.1, bar.get_y() + bar.get_height()/2, f'{score:.2f}', 
-                         va='center', fontsize=10)
-            
-            plt.xlabel('Predicted Rating')
-            plt.ylabel('Movie Title')
-            plt.title(f'Movie Recommendations for User {user_id}')
-            plt.grid(axis='x', linestyle='--', alpha=0.7)
-            plt.tight_layout()
-            plt.show()
-    except ValueError:
-        print("Invalid user ID. Please enter a number.")
+        # Display system summary
+        if data_summary:
+            print("\n📊 SYSTEM SUMMARY:")
+            for key, value in data_summary.items():
+                if isinstance(value, float):
+                    print(f"  {key}: {value:.3f}")
+                else:
+                    print(f"  {key}: {value}")
+        
+        # Save models if requested
+        if args.save_models:
+            print("\n💾 Saving models...")
+            hybrid_recommender.content_recommender.save_model("models/content_model.pkl")
+            hybrid_recommender.collaborative_recommender.save_model("models/collaborative_model.pkl")
+            print("✅ Models saved successfully!")
+        
+        # Load models if requested
+        if args.load_models:
+            print("\n📂 Loading models...")
+            if os.path.exists("models/content_model.pkl"):
+                hybrid_recommender.content_recommender.load_model("models/content_model.pkl")
+            if os.path.exists("models/collaborative_model.pkl"):
+                hybrid_recommender.collaborative_recommender.load_model("models/collaborative_model.pkl")
+            print("✅ Models loaded successfully!")
+        
+        # Run the appropriate interface
+        if args.interface == "terminal":
+            run_terminal_interface(hybrid_recommender)
+        elif args.interface == "streamlit":
+            run_streamlit_interface(hybrid_recommender)
+        elif args.interface == "demo":
+            demo_mode(hybrid_recommender)
+        
+    except KeyboardInterrupt:
+        print("\n\n👋 Goodbye!")
+    except Exception as e:
+        print(f"\n❌ An error occurred: {e}")
+        import traceback
+        traceback.print_exc()
 
-print("\nThe recommendation system is ready!")
-print("You can use the following functions:")
-print("1. get_recommendations(movie_title, num_recommendations=10) - Get recommendations for a movie")
-print("2. get_recommendations_for_movie() - Interactive function to get recommendations for a movie")
-if collaborative_filtering_available:
-    print("3. get_user_recommendations(user_id, num_recommendations=10) - Get recommendations for a user")
-    print("4. get_recommendations_for_user() - Interactive function to get recommendations for a user")
+if __name__ == "__main__":
+    main()
