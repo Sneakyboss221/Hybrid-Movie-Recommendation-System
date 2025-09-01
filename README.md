@@ -74,7 +74,7 @@ Hybrid Movie Recommendation System/
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yourusername/hybrid-movie-recommendation-system.git
+   git clone https://github.com/Sneakyboss221/hybrid-movie-recommendation-system.git
    cd hybrid-movie-recommendation-system
    ```
 
